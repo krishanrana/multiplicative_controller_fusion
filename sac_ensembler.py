@@ -1,3 +1,4 @@
+
 from copy import deepcopy
 import itertools
 import numpy as np
@@ -6,24 +7,15 @@ from torch.optim import Adam
 import gym
 import time
 import sac_core as core
-from logx import EpochLogger
 from PointGoalNavigationEnv import *
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import ray
 from torch.distributions import Normal
+from prior_controller import *
+import scipy.stats as stats
+import matplotlib.pyplot as plt
 
 ray.init()
-
-
-ENV = "PointGoalNavigation"
-REWARD_TYPE = "dense"
-ALGORITHM = "SAC_spinup"
-time_tag = str(time.time())
-log_dir = "runs/" + time_tag + "_" + ENV + "_"  + REWARD_TYPE + "_" + ALGORITHM
-model_name = time_tag + "_" + ENV + "_" + REWARD_TYPE + "_" + ALGORITHM
-writer    = SummaryWriter(log_dir=log_dir)
-save_dir = "pytorch_models/SAC_Data/" + "Ensemble_" + time_tag + '/'
-os.mkdir(save_dir)
 
 class ReplayBuffer:
     """
@@ -165,7 +157,6 @@ class SACAgent:
         return loss_pi, logp_pi.detach()
 
 
-
     def update(self, data):
         # First run one gradient descent step for Q1 and Q2
         self.q_optimizer.zero_grad()
@@ -221,13 +212,16 @@ class SACAgent:
         return act, mu, std
 
 
-
-def test_agent(steps):
+def evaluate_agent(steps):
+    
+    # We are evaluating the policy as a stand-alone system in this case
     global agents
     global test_steps
+    global total_steps
     total_reward = 0
     total_length = 0
-    for _ in range(2):
+    env.env_type = 5
+    for _ in range(5):
         o = env.reset()
         d = False
         while not d:
@@ -235,7 +229,7 @@ def test_agent(steps):
             agnts = [i.ac for i in agents]
             ensemble_actions = ray.get([get_distr.remote(o, p) for p in agnts])
             mu, sigma = fuse_ensembles_deterministic(ensemble_actions)
-            dist = Normal(torch.tensor(mu), torch.tensor(sigma))
+            dist = Normal(torch.tensor(mu.detach()), torch.tensor(sigma.detach()))
             act = dist.sample()
             act = torch.tanh(act).numpy()
             o, r, d, _ = env.step(act)
@@ -244,10 +238,12 @@ def test_agent(steps):
             total_reward += r
             total_length += 1
             test_steps += 1
-    avg_rew = total_reward/2
-    avg_len = total_length/2
-    writer.add_scalar('{}/rewards_eval'.format(ENV), avg_rew, steps)
-    writer.add_scalar('{}/length_eval'.format(ENV), avg_len, steps)
+            if r == 1.0:
+                break
+    avg_rew = total_reward/5
+    avg_len = total_length/5
+    writer.add_scalar('{}/rewards_eval'.format(ENV), avg_rew, total_steps)
+    writer.add_scalar('{}/length_eval'.format(ENV), avg_len, total_steps)
     
     print("Training...")
 
@@ -274,23 +270,34 @@ def fuse_ensembles_deterministic(ensemble_actions):
     sigma = np.sqrt(var)
     return mu, sigma
 
-
-
 def save_ensemble():
     global agents
     for idx, agnt in enumerate(agents):
-        torch.save(agnt.ac.pi, save_dir + model_name + "_" + str(idx) + "_" ".pth")
+        torch.save(agnt.ac.pi, save_dir + model_name + "_" + str(idx) + "_.pth")
+
+def fuse_controllers(prior_mu, prior_sigma, policy_mu, policy_sigma, w1):
+    # The policy mu and sigma are from the stochastic SAC output
+    # The sigma from prior is fixed
+    w2 = 1.0-w1
+    mu = (np.power(policy_sigma, 2) * w1 * prior_mu + np.power(prior_sigma,2) * w2 * policy_mu)/(np.power(policy_sigma,2) * w1 + np.power(prior_sigma,2) * w2)
+    sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(w1*policy_sigma + w2*prior_sigma))
+    return mu, sigma
+
+def w_decay(start_val=1, end_val=0.001, iterns=500000):
+    rate = (end_val/start_val)**(1/iterns)
+    return rate
 
 
-def gather_experience(agent, env):
-
+def gather_experience(agent, env, max_steps=400):
     # Prepare for interaction with environment
     global total_steps
     global replay_buffer
     global agents
+    global w1
 
-    max_steps = 300
+    env.env_type = np.random.choice([1,2,3,4,5,6])
     o, ep_ret, ep_len = env.reset(), 0, 0
+
 
     # Main loop: collect experience in env and update/log each epoch
     for t in range(max_steps):
@@ -299,17 +306,55 @@ def gather_experience(agent, env):
         # from a uniform distribution for better exploration. Afterwards, 
         # use the learned policy. 
         if total_steps > agent.start_steps:
-            a, mu, std = agent.get_action(o)
-            writer.add_scalar('{}/std_vel'.format(ENV), std[0], total_steps)
-            writer.add_scalar('{}/std_omega'.format(ENV), std[1], total_steps)
 
-            agnts = [i.ac for i in agents]
-            ensemble_actions = ray.get([get_distr.remote(o, p) for p in agnts])
-            mu, sigma = fuse_ensembles_deterministic(ensemble_actions)
-            writer.add_scalar('{}/ensemble_mu_vel'.format(ENV), mu[0], total_steps)
-            writer.add_scalar('{}/ensemble_sigma_vel'.format(ENV), sigma[0], total_steps)
-            writer.add_scalar('{}/ensemble_mu_omega'.format(ENV), mu[1], total_steps)
-            writer.add_scalar('{}/ensemble_sigma_omega'.format(ENV), sigma[1], total_steps)
+            action, mu_policy, std_policy = agent.get_action(o)
+
+            if METHOD == "hybrid":
+                dist_to_goal, angle_to_goal, _, _, laser_scan, _, _ = env._get_position_data()
+                mu_prior = prior.computeResultant(dist_to_goal, angle_to_goal, laser_scan)
+                mu_hybrid, std_hybrid = fuse_controllers(mu_prior, std_prior, mu_policy.cpu().numpy(), std_policy.cpu().numpy(), w1)
+                dist_hybrid = Normal(torch.tensor(mu_hybrid), torch.tensor(std_hybrid))
+                a = dist_hybrid.rsample()
+                a = torch.tanh(a)
+                writer.add_scalar('{}/hybrid_mu_vel'.format(ENV), mu_hybrid[0], total_steps)
+                writer.add_scalar('{}/hybrid_sigma_vel'.format(ENV), std_hybrid[0], total_steps)
+                writer.add_scalar('{}/hybrid_mu_omega'.format(ENV), mu_hybrid[1], total_steps)
+                writer.add_scalar('{}/hybrid_sigma_omega'.format(ENV), std_hybrid[1], total_steps)
+
+
+                if VIS_GRAPH:
+                    x = np.linspace(-3, 3, 100)
+                    fig = plt.figure(1)
+                    plt.subplot(211)
+                    plt.plot(x, stats.norm.pdf(x, mu_policy[0].cpu(), std_policy[0].cpu()))
+                    plt.plot(x, stats.norm.pdf(x, mu_prior[0], std_prior))
+                    plt.plot(x, stats.norm.pdf(x, mu_hybrid[0], std_hybrid[0]))
+                    plt.legend(['Policy', 'Prior', 'Combined'], loc="upper right")
+                    plt.xlabel('Linear Velocity')
+                    plt.subplot(212)
+                    plt.plot(x, stats.norm.pdf(x, mu_policy[1].cpu(), std_policy[1].cpu()))
+                    plt.plot(x, stats.norm.pdf(x, mu_prior[1], std_prior))
+                    plt.plot(x, stats.norm.pdf(x, mu_hybrid[1], std_hybrid[1]))
+                    plt.xlabel('Angular Velocity')
+                    #plt.show()
+                    writer.add_figure('{}/dist'.format(ENV), fig, global_step=total_steps, close=True, walltime=None)
+
+            if METHOD == "policy":
+                a = action
+                
+            writer.add_scalar('{}/std_vel'.format(ENV), std_policy[0], total_steps)
+            writer.add_scalar('{}/std_omega'.format(ENV), std_policy[1], total_steps)
+
+            # Compute ensemble info
+
+            #agnts = [i.ac for i in agents]
+            #ensemble_actions = ray.get([get_distr.remote(o, p) for p in agnts])
+            #mu_ensemble, sigma_ensemble = fuse_ensembles_deterministic(ensemble_actions)
+            #writer.add_scalar('{}/ensemble_mu_vel'.format(ENV), mu_ensemble[0], total_steps)
+            #writer.add_scalar('{}/ensemble_sigma_vel'.format(ENV), sigma_ensemble[0], total_steps)
+            #writer.add_scalar('{}/ensemble_mu_omega'.format(ENV), mu_ensemble[1], total_steps)
+            #writer.add_scalar('{}/ensemble_sigma_omega'.format(ENV), sigma_ensemble[1], total_steps)
+
         else:
             a = env.action_space.sample()
 
@@ -318,12 +363,13 @@ def gather_experience(agent, env):
         ep_ret += r
         ep_len += 1
         total_steps += 1
-        writer.add_scalar('{}/policy_velocity'.format(ENV), a[0], total_steps)
-        writer.add_scalar('{}/policy_omega'.format(ENV), a[1], total_steps)
+        w1 = w1 * w1_decay
+        writer.add_scalar('{}/{}_velocity'.format(ENV, METHOD), a[0], total_steps)
+        writer.add_scalar('{}/{}_omega'.format(ENV, METHOD), a[1], total_steps)
+        writer.add_scalar('{}/w1'.format(ENV), w1, total_steps)
 
         # Store experience to replay buffer
         replay_buffer.store(o, a, r, o2, d)
-
 
         if replay_buffer.size > agent.batch_size:
             for ag in agents:
@@ -343,11 +389,26 @@ def gather_experience(agent, env):
     return
 
 
+#=========================================================================================================================================================#
 
+
+ENV = "PointGoalNavigation"
+REWARD_TYPE = "sparse"
+ALGORITHM = "SAC_spinup"
+METHOD = "hybrid"
+HORIZON = "long"
+time_tag = str(time.time())
+log_dir = "runs/" + time_tag + "_" + ENV + "_"  + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD
+model_name = time_tag + "_" + ENV + "_" + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD
+writer    = SummaryWriter(log_dir=log_dir)
+save_dir = "pytorch_models/SAC_Data/" + "Ensemble_" + time_tag + '/'
+os.mkdir(save_dir)
+VIS_GRAPH = True
+ep_len = 500
 
 torch.set_num_threads(torch.get_num_threads())
 
-#==============================================================================
+
 # ENV PARAMS
 
 HYPERS = dict(# training params
@@ -357,19 +418,21 @@ HYPERS = dict(# training params
     laser_noise        = 0.01,
     angle_min          = -np.pi/2,
     angle_max          = np.pi/2,
-    timeout            = 300,
+    timeout            = ep_len,
     velocity_max       = 1,
     omega_max          = 1,
-    env_type           = 5,
+    env_type           = 2,
     reward_type        = REWARD_TYPE
 )
 
 for k,v in HYPERS.items(): exec("{} = {!r}".format(k,v))
 
-#==============================================================================
+#=========================================================================================================================================================#
 
 env = PointGoalNavigation(**HYPERS)
 num_agents = 10
+prior = PotentialFieldsController()
+std_prior = 0.4
 
 agents = [SACAgent(lambda : env, 
                     actor_critic=core.MLPActorCritic,
@@ -383,30 +446,33 @@ agents = [SACAgent(lambda : env,
                     lr=1e-3,
                     alpha=0.2,
                     batch_size=128,
-                    start_steps=1000,
+                    start_steps=10000,
                     update_after=1000,
                     update_every=50, 
                     num_test_episodes=10,
-                    max_ep_len=300,
+                    max_ep_len=ep_len,
                     save_freq=1) for i in range(num_agents)]
-
 
 obs_dim = env.observation_space.shape
 act_dim = env.action_space.shape[0]
 replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=int(1e6))
-num_episodes = 50000
+num_episodes = 500000
 total_steps = 0
 test_steps = 0
+w1 = 1
+w1_decay = w_decay(start_val=1, end_val=0.001, iterns=600000)
+
+
 
 print("Training...")
 
 for i in range(num_episodes):
 
     agent = random.choice(agents)
-    gather_experience(agent, env)
-
+    gather_experience(agent, env, max_steps=ep_len)
+    
     if i%10 == 0:
         save_ensemble()
-        #print('Evaluating')
-        #test_agent(i)
+        print('Evaluating...')
+        evaluate_agent(i)
 

@@ -64,7 +64,7 @@ class PotentialFieldsController():
     def repulsiveField(self, laser_scan):
         hit = np.flip((laser_scan < 1.5))
         struct = scipy.ndimage.generate_binary_structure(1, 1)
-        hit = scipy.ndimage.binary_dilation(hit, structure=struct, iterations=30).astype(hit.dtype) #30
+        hit = scipy.ndimage.binary_dilation(hit, structure=struct, iterations=35).astype(hit.dtype) #30
         #hit = 1 - laser_scan*2
         repulsive_field = np.zeros([(self.fov+1)])
         repulsive_field[int(self.fov/4) : int(3*self.fov/4)] = hit
@@ -75,8 +75,8 @@ class PotentialFieldsController():
 
     def computeResultant(self, dist_to_goal, angle_to_goal, laser_scan):
 
-        Kw = 3# 2
-        Kv = 0.1 # 0.1
+        Kw = 2# 2
+        Kv = 0.08 # 0.1
         att = self.attractiveField(angle_to_goal)
         rep = self.repulsiveField(laser_scan)
 
@@ -93,18 +93,19 @@ class PotentialFieldsController():
         # Compute a repulsive angular velocity to ensure robot steers away from obstacle
         rep_angle = self.fov/2 - np.where(laser_scan == np.min(laser_scan))[0][0]
         omega = -heading * Kw
+        
         vel = (10 * Kv) * (1.0 - min(0.8 * abs(omega), 0.95)) # 10 instaead of distt-goal
 
-        if np.min(laser_scan) < 0.4: #and (50<np.where(laser_scan == np.min(laser_scan))[0][0]<220) :
-            vel_rep = -1/np.min(laser_scan) * 0.01
-            vel = vel + vel_rep
-        else:
-            vel_rep = 0
+        # if np.min(laser_scan) < 0.3: #and (50<np.where(laser_scan == np.min(laser_scan))[0][0]<220) :
+        #     vel_rep = -1/np.min(laser_scan) * 0.4
+        #     vel = vel + vel_rep
+        # else:
+        #     vel_rep = 0
 
         # if abs(rep_angle) < 45:
         #     omega_rep = -1/(rep_angle) * 5
-        #     print('omega: ', omega)
-        #     print('omega rep: ', omega_rep)
+        #     #print('omega: ', omega)
+        #     #print('omega rep: ', omega_rep)
         #     omega = omega + omega_rep
         # else:
         #     omega_rep = 0

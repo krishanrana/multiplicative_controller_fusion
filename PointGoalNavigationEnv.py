@@ -83,48 +83,48 @@ class PointGoalNavigation:
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
         # ENV 1: Randomly changing boxes
         if self.env_type == 1:
-            self.barrier_block1 = self.world.CreateStaticBody(position=(rnd(0.4, 0.4), rnd(-0.8, 0.8)), shapes=b2PolygonShape(box=(0.1,0.1)))
-            self.barrier_block2 = self.world.CreateStaticBody(position=(rnd(0.0, 0.0), rnd(-0.8, 0.8)), shapes=b2PolygonShape(box=(0.1,0.1)))
-            self.barrier_block3 = self.world.CreateStaticBody(position=(rnd(-0.4, -0.4), rnd(-0.8, 0.8)), shapes=b2PolygonShape(box=(0.1,0.1)))
-            self.barrier_block4 = self.world.CreateStaticBody(position=(rnd(-0.8, -0.8), rnd(-0.8, 0.8)), shapes=b2PolygonShape(box=(0.1,0.1)))
-            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4]
+            self.barrier_block1 = self.world.CreateStaticBody(position=(0.5*3, rnd(-0.8, 0.8)*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block2 = self.world.CreateStaticBody(position=(0.0*3, rnd(-0.8, 0.8)*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block3 = self.world.CreateStaticBody(position=(-0.5*3, rnd(-0.8, 0.8)*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block4 = self.world.CreateStaticBody(position=(-1.0*3, rnd(-0.8, 0.8)*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block5 = self.world.CreateStaticBody(position=(-1.5*3, rnd(-0.8, 0.8)*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4, self.barrier_block5]
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
         # ENV 2: Simple
         if self.env_type == 2:
-            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.5, 0), shapes=b2PolygonShape(box=(0.025,0.2)))
-            self.barrier_block2 = self.world.CreateStaticBody(position=( -0.5, 0), shapes=b2PolygonShape(box=(0.025,0.2)))
-            self.barrier_block3 = self.world.CreateStaticBody(position=( 0, 0.5), shapes=b2PolygonShape(box=(0.2,0.05)))
-            self.barrier_block4 = self.world.CreateStaticBody(position=( 0, -0.5), shapes=b2PolygonShape(box=(0.2,0.05)))
+            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0*3), shapes=b2PolygonShape(box=(0.08*3,0.2*3)))
+            self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0*3), shapes=b2PolygonShape(box=(0.08*3,0.2*3)))
+            self.barrier_block3 = self.world.CreateStaticBody(position=( 0*3, 0.7*3), shapes=b2PolygonShape(box=(0.2*3,0.25*3)))
+            self.barrier_block4 = self.world.CreateStaticBody(position=( 0*3, -0.7*3), shapes=b2PolygonShape(box=(0.2*3,0.25*3)))
             self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4]
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
         # ENV 3: Complex
         if self.env_type == 3:
-            self.barrier_block1 = self.world.CreateStaticBody(position=( -1.4, 0.4), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block2 = self.world.CreateStaticBody(position=( -1.0, -0.1), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block3 = self.world.CreateStaticBody(position=( 0.1, 0.2), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block4 = self.world.CreateStaticBody(position=( -0.1, 0.5), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block5 = self.world.CreateStaticBody(position=( -0.8, -0.6), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block6 = self.world.CreateStaticBody(position=( 0.1, -0.2), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block7 = self.world.CreateStaticBody(position=( 1.1, -0.1), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block8 = self.world.CreateStaticBody(position=( 0.5, -0.7), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block9 = self.world.CreateStaticBody(position=( 1.2, 0.8), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_block10 = self.world.CreateStaticBody(position=( -0.2, -0.8), shapes=b2PolygonShape(box=(rnd(0.1, 0.2),rnd(0.08, 0.1))))
-            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4, self.barrier_block5, 
-                                self.barrier_block6, self.barrier_block7, self.barrier_block8, self.barrier_block9, self.barrier_block10]
+            self.barrier_block1 = self.world.CreateStaticBody(position=( -1.4*3, 0.4*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_block2 = self.world.CreateStaticBody(position=( -1.0*3, -0.1*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_block3 = self.world.CreateStaticBody(position=( 0.1*3, 0.2*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            #self.barrier_block4 = self.world.CreateStaticBody(position=( -0.1*3, 0.5*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            #self.barrier_block5 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08, 0.1*3))))
+            #self.barrier_block6 = self.world.CreateStaticBody(position=( 0.1*3, -0.2*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_block7 = self.world.CreateStaticBody(position=( 1.1*3, -0.1*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_block8 = self.world.CreateStaticBody(position=( 0.5*3, -0.7*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            #self.barrier_block9 = self.world.CreateStaticBody(position=( 1.2*3, 0.8*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_block10 = self.world.CreateStaticBody(position=( -0.2*3, -0.8*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
+            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3,  self.barrier_block7, self.barrier_block8,self.barrier_block10]
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
         # ENV 4: Complex 2
         if self.env_type == 4:
-            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*2,0.1*2)))
-            self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*2,0.1*2)))
-            self.barrier_block3 = self.world.CreateStaticBody(position=( 0.0*3, 0.2*3), shapes=b2PolygonShape(box=(0.25*2,0.07*2)))
-            self.barrier_block4 = self.world.CreateStaticBody(position=( 0.0*3, -0.2*3), shapes=b2PolygonShape(box=(0.25*2,0.07*2)))
-            self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*2,0.25*2)))
-            self.barrier_block6 = self.world.CreateStaticBody(position=( 1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*2,0.25*2)))
-            self.barrier_block7 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2PolygonShape(box=(0.1*2,0.1*2)))
-            self.barrier_block8 = self.world.CreateStaticBody(position=( 0.8*3, -0.6*3), shapes=b2PolygonShape(box=(0.1*2,0.1*2)))
-            self.barrier_block9 = self.world.CreateStaticBody(position=( 0*3, 0.8*3), shapes=b2PolygonShape(box=(0.25*2,0.07*2)))
-            self.barrier_block10 = self.world.CreateStaticBody(position=( 0*3, -0.8*3), shapes=b2PolygonShape(box=(0.25*2,0.07*2)))
-            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4, self.barrier_block5, 
+            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            #self.barrier_block3 = self.world.CreateStaticBody(position=( 0.0*3, 0.2*3), shapes=b2PolygonShape(box=(0.25*3,0.07*3)))
+            self.barrier_block4 = self.world.CreateStaticBody(position=( 0.0, 0.0), shapes=b2PolygonShape(box=(0.25*3,0.17*3)))
+            self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*3,0.25*3)))
+            self.barrier_block6 = self.world.CreateStaticBody(position=( 1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*3,0.25*3)))
+            self.barrier_block7 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block8 = self.world.CreateStaticBody(position=( 0.8*3, -0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
+            self.barrier_block9 = self.world.CreateStaticBody(position=( 0*3, 0.8*3), shapes=b2PolygonShape(box=(0.25*3,0.07*3)))
+            self.barrier_block10 = self.world.CreateStaticBody(position=( 0*3, -0.8*3), shapes=b2PolygonShape(box=(0.25*3,0.07*3)))
+            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block4, self.barrier_block5, 
                                 self.barrier_block6, self.barrier_block7, self.barrier_block8, self.barrier_block9, self.barrier_block10]
 
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
@@ -148,16 +148,16 @@ class PointGoalNavigation:
         # ENV 6: Complex 6
 
         if self.env_type == 6:
-            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2CircleShape(radius=(0.2*1.5)))
+            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2CircleShape(radius=(0.2*2)))
             self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0.6*3), shapes=b2CircleShape(radius=(0.2*1.5)))
-            self.barrier_block3 = self.world.CreateStaticBody(position=( -0.2*3, 0.2*3), shapes=b2CircleShape(radius=(0.2*1.5)))
+            self.barrier_block3 = self.world.CreateStaticBody(position=( -0.2*3, 0.2*3), shapes=b2CircleShape(radius=(0.2*2)))
             self.barrier_block4 = self.world.CreateStaticBody(position=( 0.2*3, -0.2*3), shapes=b2CircleShape(radius=(0.2*1.5)))
-            self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2CircleShape(radius=(0.2*1.5)))
+            self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2CircleShape(radius=(0.2*2)))
             self.barrier_block6 = self.world.CreateStaticBody(position=( 1.3*3, 0*3), shapes=b2CircleShape(radius=(0.2*1.5)))
-            self.barrier_block7 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2CircleShape(radius=(0.2*1.5)))
+            self.barrier_block7 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2CircleShape(radius=(0.2*2)))
             self.barrier_block8 = self.world.CreateStaticBody(position=( 0.8*3, -0.6*3), shapes=b2CircleShape(radius=(0.2*1.5)))
             self.barrier_block9 = self.world.CreateStaticBody(position=( 0*3, 0.8*3), shapes=b2CircleShape(radius=(0.2*1.5)))
-            self.barrier_block10 = self.world.CreateStaticBody(position=( 0*3, -0.8*3), shapes=b2CircleShape(radius=(0.2*1.5)))
+            self.barrier_block10 = self.world.CreateStaticBody(position=( 0*3, -0.8*3), shapes=b2CircleShape(radius=(0.2*2)))
             self.circular_blocks = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4, self.barrier_block5, 
                                 self.barrier_block6, self.barrier_block7, self.barrier_block8, self.barrier_block9, self.barrier_block10]
             self.barrier_walls = []
@@ -180,7 +180,7 @@ class PointGoalNavigation:
             pt1 = np.array(points[3])
             pt2 = np.array(points[1])
             # Dilate with radius of robot
-            obstacle_mask[pt1[1]-80:pt2[1]+80, pt1[0]-80:pt2[0]+80] = 1
+            obstacle_mask[pt1[1]-40:pt2[1]+40, pt1[0]-40:pt2[0]+40] = 1
 
         # Draw the mask
         #obstacle_mask = obstacle_mask*255
@@ -188,8 +188,8 @@ class PointGoalNavigation:
         
         # Search for obstacle free goal location
         while(1):
-            goalx = rnd(-3.8, 3.8)
-            goaly = rnd(-1.8, 1.8)
+            goalx = rnd(3.5, 5.0)
+            goaly = rnd(-2.5, 2.5)
             goalpt = self.w2p(*np.array([goalx, goaly]))
             if obstacle_mask[goalpt[1], goalpt[0]] == 1:
                 continue
@@ -200,14 +200,19 @@ class PointGoalNavigation:
 
         # Search for obstacle free robot location
         while(1):
-            robotx = rnd(-3.8, 3.8)
-            roboty = rnd(-1.8, 1.8)
+            robotx = rnd(-5.5, -3.5)
+            roboty = rnd(-2.5, 2.5)
             robotpt = self.w2p(*np.array([robotx, roboty]))
             if obstacle_mask[robotpt[1], robotpt[0]] == 1:
                 continue
             else:
                 break
         self.robot_loc = np.array([robotx, roboty])
+
+        swap = np.random.choice([1,2])
+        if swap == 1:
+            self.goal = np.array([robotx, roboty])
+            self.robot_loc = np.array([goalx, goaly])
 
         # Initialise Agent
         #self.agent_body  = self.world.CreateDynamicBody(position=(-1.3, 0), angle=0, angularVelocity=0, linearDamping=20.0, angularDamping=30.0)
@@ -272,6 +277,11 @@ class PointGoalNavigation:
             cv2.fillConvexPoly(img, points=np.array(points), color=(64,64,64))
             cv2.polylines(img, pts=[np.array(points)], isClosed=True, color=(0,0,0), thickness=8)
 
+        if self.env_type == 6:
+            for ob in self.circular_blocks:
+                cv2.circle(img, self.w2p(*ob.position), self.w2r(ob.fixtures[0].shape.radius), (64,64,64), -1)
+                cv2.circle(img, self.w2p(*ob.position), self.w2r(ob.fixtures[0].shape.radius), (0,0,0), 10)
+
         # Agent position and shape data
         agent_loc = self.agent_body.GetWorldPoint(self.agent_shape.shape.pos)
         pix_point = self.w2p(*agent_loc)
@@ -311,8 +321,8 @@ class PointGoalNavigation:
         #print(action)
         #action = np.clip(action, -1, 1) #uncomment if i am using ppo as it does not clip actions
         #print(action)
-        lin = float(action[0] * 5)
-        omega = float(action[1] * 10)
+        lin = float(action[0] * 10)
+        omega = float(action[1] * 15)
 
         velocity = (lin*np.cos(self.agent_body.angle), lin*np.sin(self.agent_body.angle))
         
@@ -332,15 +342,15 @@ class PointGoalNavigation:
         self.timestep += 1
 
         # Defining the rewards
-        dense_rew = ((prev_dist - dist) * 100) - 0.1
+        #dense_rew = ((prev_dist - dist) * 100) - 0.1
 
-        #dense_rew = ((prev_dist - dist) * 150) - (self.timestep * 0.1)
+        dense_rew = ((prev_dist - dist) * 150) - (self.timestep * 0.1)
 
-        # if lin < 0:
-        #     dense_rew -= 200
+        if lin < 0:
+             dense_rew -= 150
 
-        # if self.collided:
-        #     dense_rew -= 200
+        if self.collided:
+             dense_rew -= 150
 
 
         if self.timestep > self.timeout: 
@@ -348,20 +358,24 @@ class PointGoalNavigation:
             if self.reward_type == "sparse":
                 return self._obs(),   0.0, True,  {}
             elif self.reward_type == "dense":
-                return self._obs(),   0.0, True,  {}
+                return self._obs(),   dense_rew, True,  {}
 
         elif self.goal_achieved(): 
             self.done = True
             if self.reward_type == "sparse": 
-                return self._obs(),   1.0, True,  {}
+                return self._obs(),   1.0, False,  {}
             elif self.reward_type == "dense":
-                return self._obs(),   50, True,  {}
+                return self._obs(),   100, True,  {}
         else: 
             self.done = False
             if self.reward_type == "sparse": 
-                return self._obs(),  -0.01, False, {}
+                return self._obs(),  0, False, {}
             elif self.reward_type == "dense":
                 return self._obs(),  dense_rew, False, {}
+
+        #done = 1 if self.timestep > self.timeout else 0
+        #reward = 1 if self.goal_achieved() else 0
+        #return self._obs(),reward
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------#
 
