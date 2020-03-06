@@ -65,10 +65,8 @@ class PotentialFieldsController():
         hit = np.flip((laser_scan < 1.5))
         struct = scipy.ndimage.generate_binary_structure(1, 1)
         hit = scipy.ndimage.binary_dilation(hit, structure=struct, iterations=35).astype(hit.dtype) #30
-        #hit = 1 - laser_scan*2
         repulsive_field = np.zeros([(self.fov+1)])
         repulsive_field[int(self.fov/4) : int(3*self.fov/4)] = hit
-        #repulsive_field[int(self.fov/8) : int(7*self.fov/8)] = hit
 
         return repulsive_field
 
@@ -96,25 +94,9 @@ class PotentialFieldsController():
         
         vel = (10 * Kv) * (1.0 - min(0.8 * abs(omega), 0.95)) # 10 instaead of distt-goal
 
-        # if np.min(laser_scan) < 0.3: #and (50<np.where(laser_scan == np.min(laser_scan))[0][0]<220) :
-        #     vel_rep = -1/np.min(laser_scan) * 0.4
-        #     vel = vel + vel_rep
-        # else:
-        #     vel_rep = 0
-
-        # if abs(rep_angle) < 45:
-        #     omega_rep = -1/(rep_angle) * 5
-        #     #print('omega: ', omega)
-        #     #print('omega rep: ', omega_rep)
-        #     omega = omega + omega_rep
-        # else:
-        #     omega_rep = 0
-
-
         omega = np.clip(omega, -1, 1)
         vel = np.clip(vel, -1, 1)
 
-        #vel = 0
         # self.ax1.cla(), self.ax1.plot(fov_map, att), self.ax1.set_title('Attractor')
         # self.ax2.cla(), self.ax2.plot(fov_map, rep), self.ax2.set_title('Repulsor')
         # self.ax3.cla(), self.ax3.plot(fov_map, result), self.ax3.set_title('Resultant')
@@ -122,29 +104,7 @@ class PotentialFieldsController():
         # plt.show(block=False)
         # plt.pause(0.00000001)
 
-        #print([vel, omega])
 
         return np.array([vel, omega])
         #return np.array([omega])
-
-# Angle set to -45 to 45
-# env = ToySubsumptionEnv(angle_min=-np.pi/4, angle_max=np.pi/4, num_beams=90, k=0.2, t=0.001, laser_noise = 0)
-# obs = env.reset() 
-# fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-# nav = PotentialFieldsController()
-# angle_tolerance = 3
-
-# while(True):
-#     env.render()
-    
-#     heading = nav.computeResultant(obs)
-    
-#     if abs(heading) < angle_tolerance   : action = 0
-#     elif heading < -angle_tolerance     : action = 2
-#     elif heading > angle_tolerance      : action = 1
-    
-#     obs, rew, done, _ = env.step(action)
-    
-#     if done:
-#         obs = env.reset()
 

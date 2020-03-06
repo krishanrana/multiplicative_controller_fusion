@@ -25,11 +25,6 @@ class RaycastCallback(b2RayCastCallback):
 
 class PointGoalNavigation:
 
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second' : 50
-    }
-
     def __init__(self, **kwargs):
         self.__dict__.update(dict(
             w = 2000, h = 1000, xmn = -6, xmx = 6, ymn = -3, ymx = 3,
@@ -39,6 +34,7 @@ class PointGoalNavigation:
         self.__dict__.update(kwargs)
 
         self.bg_img = cv2.resize(cv2.cvtColor(np.random.randint(225,256,(self.h//8,self.w//8)).astype(np.uint8), cv2.COLOR_GRAY2BGR), dsize=(self.w,self.h), interpolation=cv2.INTER_NEAREST)       
+        
         self.action_space = spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float64)
         self.reward_range = [-1000, 1000]
         self.num_laser_samples = self.num_beams
@@ -103,12 +99,8 @@ class PointGoalNavigation:
             self.barrier_block1 = self.world.CreateStaticBody(position=( -1.4*3, 0.4*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_block2 = self.world.CreateStaticBody(position=( -1.0*3, -0.1*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_block3 = self.world.CreateStaticBody(position=( 0.1*3, 0.2*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
-            #self.barrier_block4 = self.world.CreateStaticBody(position=( -0.1*3, 0.5*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
-            #self.barrier_block5 = self.world.CreateStaticBody(position=( -0.8*3, -0.6*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08, 0.1*3))))
-            #self.barrier_block6 = self.world.CreateStaticBody(position=( 0.1*3, -0.2*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_block7 = self.world.CreateStaticBody(position=( 1.1*3, -0.1*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_block8 = self.world.CreateStaticBody(position=( 0.5*3, -0.7*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
-            #self.barrier_block9 = self.world.CreateStaticBody(position=( 1.2*3, 0.8*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_block10 = self.world.CreateStaticBody(position=( -0.2*3, -0.8*3), shapes=b2PolygonShape(box=(rnd(0.1*3, 0.2*3),rnd(0.08*3, 0.1*3))))
             self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3,  self.barrier_block7, self.barrier_block8,self.barrier_block10]
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
@@ -116,7 +108,6 @@ class PointGoalNavigation:
         if self.env_type == 4:
             self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
             self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.1*3,0.1*3)))
-            #self.barrier_block3 = self.world.CreateStaticBody(position=( 0.0*3, 0.2*3), shapes=b2PolygonShape(box=(0.25*3,0.07*3)))
             self.barrier_block4 = self.world.CreateStaticBody(position=( 0.0, 0.0), shapes=b2PolygonShape(box=(0.25*3,0.17*3)))
             self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*3,0.25*3)))
             self.barrier_block6 = self.world.CreateStaticBody(position=( 1.3*3, 0*3), shapes=b2PolygonShape(box=(0.07*3,0.25*3)))
@@ -163,8 +154,28 @@ class PointGoalNavigation:
             self.barrier_walls = []
 
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
-        # ENV 5: Empty World
+
         if self.env_type == 7:
+            self.barrier_block1 = self.world.CreateStaticBody(position=( 0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.2*1.5,0.2*1.5)))
+            self.barrier_block2 = self.world.CreateStaticBody(position=( -0.8*3, 0.6*3), shapes=b2PolygonShape(box=(0.3*1.5,0.3*1.5)))
+            self.barrier_block3 = self.world.CreateStaticBody(position=( -0.2*3, 0.1*3), shapes=b2PolygonShape(box=(0.2*1.5,0.2*1.5)))
+            self.barrier_block4 = self.world.CreateStaticBody(position=( 0.7*3, -0.2*3), shapes=b2PolygonShape(box=(0.2*1.5,0.2*1.5)))
+            self.barrier_block5 = self.world.CreateStaticBody(position=( -1.3*3, 0*3), shapes=b2PolygonShape(box=(0.2*1.5,0.2*1.5)))
+            
+            self.barrier_block6 = self.world.CreateStaticBody(position=( -0.1*3, -0.8*3), shapes=b2PolygonShape(box=(0.2*3,0.05*3)))
+            self.barrier_block7 = self.world.CreateStaticBody(position=( 0.15*3, -0.65*3), shapes=b2PolygonShape(box=(0.05*3,0.2*3)))
+            self.barrier_block8 = self.world.CreateStaticBody(position=( -1.2*3, -0.8*3), shapes=b2PolygonShape(box=(0.4*3,0.5*3)))
+            self.barrier_block9 = self.world.CreateStaticBody(position=( 1.5*3, -0.5*3), shapes=b2PolygonShape(box=(0.2*3,0.2*3)))
+            self.barrier_block10 = self.world.CreateStaticBody(position=( 0.3*3, 0.8*3), shapes=b2PolygonShape(box=(0.05*3,0.2*3)))
+            self.circular_blocks = []
+            self.barrier_walls = [self.barrier_block1, self.barrier_block2, self.barrier_block3, self.barrier_block4, self.barrier_block5,
+                                    self.barrier_block6, self.barrier_block7, self.barrier_block8, self.barrier_block9, self.barrier_block10]
+
+
+
+        #-----------------------------------------------------------------------------------------------------------------------------------------------#
+        # ENV 5: Empty World
+        if self.env_type == 8:
             self.barrier_walls = []
         
         #-----------------------------------------------------------------------------------------------------------------------------------------------#
@@ -209,15 +220,14 @@ class PointGoalNavigation:
                 break
         self.robot_loc = np.array([robotx, roboty])
 
+        # Switch the locations of robot and goal occasionally to increase variation to state exposure.
         swap = np.random.choice([1,2])
         if swap == 1:
             self.goal = np.array([robotx, roboty])
             self.robot_loc = np.array([goalx, goaly])
 
         # Initialise Agent
-        #self.agent_body  = self.world.CreateDynamicBody(position=(-1.3, 0), angle=0, angularVelocity=0, linearDamping=20.0, angularDamping=30.0)
         self.agent_body  = self.world.CreateDynamicBody(position=(self.robot_loc[0], self.robot_loc[1]), angle=rnd(-np.pi,np.pi), angularVelocity=0, linearDamping=20.0, angularDamping=30.0)
-        #self.agent_body = self.world.CreateKinematicBody(position=(rnd(-0.9,0.9), rnd(-0.9,-0.8)), angle=rnd(-np.pi,np.pi), angularVelocity=0, linearDamping=20.0, angularDamping=30.0)
         self.agent_shape = self.agent_body.CreateFixture(shape=b2CircleShape(pos=(0,0), radius=0.3), density=0.1, friction=0.3)
         self.agent_body.mass = 5
         self.trail_buffer = []
@@ -242,6 +252,7 @@ class PointGoalNavigation:
     def render(self):
 
         agent_color = (0,0,0)
+        # Make a copy as we dont wan to write over original image
         img = self.bg_img.copy()
 
         # draw goal
@@ -277,7 +288,7 @@ class PointGoalNavigation:
             cv2.fillConvexPoly(img, points=np.array(points), color=(64,64,64))
             cv2.polylines(img, pts=[np.array(points)], isClosed=True, color=(0,0,0), thickness=8)
 
-        if self.env_type == 6:
+        if self.env_type == 6 or self.env_type == 7:
             for ob in self.circular_blocks:
                 cv2.circle(img, self.w2p(*ob.position), self.w2r(ob.fixtures[0].shape.radius), (64,64,64), -1)
                 cv2.circle(img, self.w2p(*ob.position), self.w2r(ob.fixtures[0].shape.radius), (0,0,0), 10)
@@ -318,9 +329,6 @@ class PointGoalNavigation:
     def step(self, action):
 
         # Scale the actions by their maximums
-        #print(action)
-        #action = np.clip(action, -1, 1) #uncomment if i am using ppo as it does not clip actions
-        #print(action)
         lin = float(action[0] * 10)
         omega = float(action[1] * 15)
 
@@ -342,15 +350,10 @@ class PointGoalNavigation:
         self.timestep += 1
 
         # Defining the rewards
-        #dense_rew = ((prev_dist - dist) * 100) - 0.1
-
-        dense_rew = ((prev_dist - dist) * 150) - (self.timestep * 0.1)
-
-        if lin < 0:
-             dense_rew -= 150
+        dense_rew = ((prev_dist - dist) * 100)
 
         if self.collided:
-             dense_rew -= 150
+             dense_rew -= 50
 
 
         if self.timestep > self.timeout: 
@@ -363,19 +366,15 @@ class PointGoalNavigation:
         elif self.goal_achieved(): 
             self.done = True
             if self.reward_type == "sparse": 
-                return self._obs(),   1.0, False,  {}
+                return self._obs(),   1.0, False,  1.0
             elif self.reward_type == "dense":
-                return self._obs(),   100, True,  {}
+                return self._obs(),   1.0, False,  1.0
         else: 
             self.done = False
             if self.reward_type == "sparse": 
-                return self._obs(),  0, False, {}
+                return self._obs(),  -0.01, False, {}
             elif self.reward_type == "dense":
                 return self._obs(),  dense_rew, False, {}
-
-        #done = 1 if self.timestep > self.timeout else 0
-        #reward = 1 if self.goal_achieved() else 0
-        #return self._obs(),reward
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------#
 

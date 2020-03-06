@@ -14,6 +14,8 @@ from torch.distributions import Normal
 from prior_controller import *
 import scipy.stats as stats
 import matplotlib.pyplot as plt
+import argparse
+import cv2
 
 ray.init()
 
@@ -107,9 +109,6 @@ class SACAgent:
         
         # Entropy temperature
         self.alpha = alpha
-        #self.target_entropy = -torch.prod(torch.Tensor(self.env.action_space.shape).to(self.device)).item()
-        #self.log_alpha = torch.tensor([[-0.7]], requires_grad=True, device=self.device)
-        #self.alpha_optim = Adam([self.log_alpha], lr=self.a_lr)
 
     # Set up function for computing SAC Q-losses
     def compute_loss_q(self, data):
@@ -164,9 +163,6 @@ class SACAgent:
         loss_q.backward()
         self.q_optimizer.step()
 
-        # Record things
-        #logger.store(LossQ=loss_q.item(), **q_info)
-
         # Freeze Q-networks so you don't waste computational effort 
         # computing gradients for them during the policy learning step.
         for p in self.q_params:
@@ -182,12 +178,6 @@ class SACAgent:
         for p in self.q_params:
             p.requires_grad = True
 
-        # Record things
-        #logger.store(LossPi=loss_pi.item(), **pi_info)
-
-        #self.alpha = self.alpha * 0.9999700431259806
-        #writer.add_scalar('{}/alpha'.format(ENV), self.alpha, self.timestep)
-
 
         # Finally, update target networks by polyak averaging.
         with torch.no_grad():
@@ -196,15 +186,6 @@ class SACAgent:
                 # params, as opposed to "mul" and "add", which would make new tensors.
                 p_targ.data.mul_(self.polyak)
                 p_targ.data.add_((1 - self.polyak) * p.data)
-
-        #Update temperature
-        #alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
-        #writer.add_scalar('{}/alpha_loss'.format(ENV), alpha_loss, self.timestep)
-
-        #self.alpha_optim.zero_grad()
-        #alpha_loss.backward()
-        #self.alpha_optim.step()
-        #self.alpha = self.log_alpha.exp()
 
 
     def get_action(self, o, deterministic=False):
@@ -220,7 +201,7 @@ def evaluate_agent(steps):
     global total_steps
     total_reward = 0
     total_length = 0
-    env.env_type = 5
+    env.env_type = 2
     for _ in range(5):
         o = env.reset()
         d = False
@@ -229,6 +210,7 @@ def evaluate_agent(steps):
             agnts = [i.ac for i in agents]
             ensemble_actions = ray.get([get_distr.remote(o, p) for p in agnts])
             mu, sigma = fuse_ensembles_deterministic(ensemble_actions)
+            #print(mu, sigma)
             dist = Normal(torch.tensor(mu.detach()), torch.tensor(sigma.detach()))
             act = dist.sample()
             act = torch.tanh(act).numpy()
@@ -245,8 +227,6 @@ def evaluate_agent(steps):
     writer.add_scalar('{}/rewards_eval'.format(ENV), avg_rew, total_steps)
     writer.add_scalar('{}/length_eval'.format(ENV), avg_len, total_steps)
     
-    print("Training...")
-
 
 @ray.remote(num_gpus=1)
 def get_distr(state, agent):
@@ -275,27 +255,32 @@ def save_ensemble():
     for idx, agnt in enumerate(agents):
         torch.save(agnt.ac.pi, save_dir + model_name + "_" + str(idx) + "_.pth")
 
-def fuse_controllers(prior_mu, prior_sigma, policy_mu, policy_sigma, w1):
+def fuse_controllers(prior_mu, prior_sigma, policy_mu, policy_sigma, alpha):
     # The policy mu and sigma are from the stochastic SAC output
     # The sigma from prior is fixed
-    w2 = 1.0-w1
-    mu = (np.power(policy_sigma, 2) * w1 * prior_mu + np.power(prior_sigma,2) * w2 * policy_mu)/(np.power(policy_sigma,2) * w1 + np.power(prior_sigma,2) * w2)
-    sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(w1*policy_sigma + w2*prior_sigma))
+    if alpha > 1.0:
+        alpha = 1.0
+    alpha_comp = 1.0-alpha
+    mu = (np.power(policy_sigma, 2) * alpha * prior_mu + np.power(prior_sigma,2) * w2 * policy_mu)/(np.power(policy_sigma,2) * alpha + np.power(prior_sigma,2) * alpha_comp)
+    sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(np.power(policy_sigma,2) * alpha + np.power(prior_sigma,2) * alpha_comp))
     return mu, sigma
 
-def w_decay(start_val=1, end_val=0.001, iterns=500000):
+def alpha_exponential_decay_function(start_val=1, end_val=0.001, iterns=500000):
     rate = (end_val/start_val)**(1/iterns)
     return rate
 
+def alpha_reverse_sigmoid_function(k, x0, x):
+    val = 1 / (1 + math.exp(k(x - x0))) 
+    return val
 
-def gather_experience(agent, env, max_steps=400):
+def gather_experience(agent, env, max_steps, ep):
     # Prepare for interaction with environment
     global total_steps
     global replay_buffer
     global agents
-    global w1
+    global alpha
 
-    env.env_type = np.random.choice([1,2,3,4,5,6])
+    env.env_type = np.random.choice([1,2,3,4,5])
     o, ep_ret, ep_len = env.reset(), 0, 0
 
 
@@ -308,18 +293,39 @@ def gather_experience(agent, env, max_steps=400):
         if total_steps > agent.start_steps:
 
             action, mu_policy, std_policy = agent.get_action(o)
+            writer.add_scalar('{}/policy_mu_vel'.format(ENV), mu_policy[0], total_steps)
+            writer.add_scalar('{}/policy_sigma_vel'.format(ENV), std_policy[0], total_steps)
+            writer.add_scalar('{}/policy_mu_omega'.format(ENV), mu_policy[1], total_steps)
+            writer.add_scalar('{}/policy_sigma_omega'.format(ENV), std_policy[1], total_steps)
+            
+
+            if METHOD == "baseline":
+                if ep%2 == 0:
+                    dist_to_goal, angle_to_goal, _, _, laser_scan, _, _ = env._get_position_data()
+                    a = prior.computeResultant(dist_to_goal, angle_to_goal, laser_scan)
+                else:
+                    a = action
+                    
 
             if METHOD == "hybrid":
                 dist_to_goal, angle_to_goal, _, _, laser_scan, _, _ = env._get_position_data()
                 mu_prior = prior.computeResultant(dist_to_goal, angle_to_goal, laser_scan)
-                mu_hybrid, std_hybrid = fuse_controllers(mu_prior, std_prior, mu_policy.cpu().numpy(), std_policy.cpu().numpy(), w1)
+                mu_hybrid, std_hybrid = fuse_controllers(mu_prior, std_prior, mu_policy.cpu().numpy(), std_policy.cpu().numpy(), alpha)
                 dist_hybrid = Normal(torch.tensor(mu_hybrid), torch.tensor(std_hybrid))
                 a = dist_hybrid.rsample()
                 a = torch.tanh(a)
+
+                writer.add_scalar('{}/prior_mu_vel'.format(ENV), mu_prior[0], total_steps)
+                writer.add_scalar('{}/prior_sigma_vel'.format(ENV), std_prior, total_steps)
+                writer.add_scalar('{}/prior_mu_omega'.format(ENV), mu_prior[1], total_steps)
+                writer.add_scalar('{}/prior_sigma_omega'.format(ENV), std_prior, total_steps)
+
                 writer.add_scalar('{}/hybrid_mu_vel'.format(ENV), mu_hybrid[0], total_steps)
                 writer.add_scalar('{}/hybrid_sigma_vel'.format(ENV), std_hybrid[0], total_steps)
                 writer.add_scalar('{}/hybrid_mu_omega'.format(ENV), mu_hybrid[1], total_steps)
                 writer.add_scalar('{}/hybrid_sigma_omega'.format(ENV), std_hybrid[1], total_steps)
+
+                alpha = alpha * alpha_decay
 
 
                 if VIS_GRAPH:
@@ -342,19 +348,6 @@ def gather_experience(agent, env, max_steps=400):
             if METHOD == "policy":
                 a = action
                 
-            writer.add_scalar('{}/std_vel'.format(ENV), std_policy[0], total_steps)
-            writer.add_scalar('{}/std_omega'.format(ENV), std_policy[1], total_steps)
-
-            # Compute ensemble info
-
-            #agnts = [i.ac for i in agents]
-            #ensemble_actions = ray.get([get_distr.remote(o, p) for p in agnts])
-            #mu_ensemble, sigma_ensemble = fuse_ensembles_deterministic(ensemble_actions)
-            #writer.add_scalar('{}/ensemble_mu_vel'.format(ENV), mu_ensemble[0], total_steps)
-            #writer.add_scalar('{}/ensemble_sigma_vel'.format(ENV), sigma_ensemble[0], total_steps)
-            #writer.add_scalar('{}/ensemble_mu_omega'.format(ENV), mu_ensemble[1], total_steps)
-            #writer.add_scalar('{}/ensemble_sigma_omega'.format(ENV), sigma_ensemble[1], total_steps)
-
         else:
             a = env.action_space.sample()
 
@@ -363,10 +356,8 @@ def gather_experience(agent, env, max_steps=400):
         ep_ret += r
         ep_len += 1
         total_steps += 1
-        w1 = w1 * w1_decay
-        writer.add_scalar('{}/{}_velocity'.format(ENV, METHOD), a[0], total_steps)
-        writer.add_scalar('{}/{}_omega'.format(ENV, METHOD), a[1], total_steps)
-        writer.add_scalar('{}/w1'.format(ENV), w1, total_steps)
+
+        writer.add_scalar('{}/alpha'.format(ENV), alpha, total_steps)
 
         # Store experience to replay buffer
         replay_buffer.store(o, a, r, o2, d)
@@ -385,29 +376,39 @@ def gather_experience(agent, env, max_steps=400):
         # most recent observation!
         o = o2
 
-
     return
 
 
 #=========================================================================================================================================================#
 
+parser = argparse.ArgumentParser(description='Parameters for training')
+parser.add_argument('--method', type=str, default="hybrid", help="options include: policy, hybrid")
+parser.add_argument('--env_type', type=int, default=5)
+parser.add_argument('--seed', type=int, default=18)
+parser.add_argument('--reward_type', type=str, default="sparse")
+parser.add_argument('--colour', nargs='+', type=int, default=[255,222,0])
+args = parser.parse_args()
 
 ENV = "PointGoalNavigation"
-REWARD_TYPE = "sparse"
+REWARD_TYPE = args.reward_type
 ALGORITHM = "SAC_spinup"
-METHOD = "hybrid"
+METHOD = args.method
+SEED = args.seed
 HORIZON = "long"
 time_tag = str(time.time())
-log_dir = "runs/" + time_tag + "_" + ENV + "_"  + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD
-model_name = time_tag + "_" + ENV + "_" + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD
+log_dir = "runs_video/" + time_tag + "_" + ENV + "_"  + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD + "FOR_VIDEO" + str(SEED)
+model_name = time_tag + "_" + ENV + "_" + REWARD_TYPE + "_" + ALGORITHM + "_" + HORIZON + "_horizon" + "_" + METHOD + "FOR_VIDEO" + str(SEED)
 writer    = SummaryWriter(log_dir=log_dir)
-save_dir = "pytorch_models/SAC_Data/" + "Ensemble_" + time_tag + '/'
+save_dir = "pytorch_models/SAC_Data/" + "FOR_ROBOT_Ensemble_" + time_tag + '/'
 os.mkdir(save_dir)
-VIS_GRAPH = True
+VIS_GRAPH = False
 ep_len = 500
 
-torch.set_num_threads(torch.get_num_threads())
+print('Method: ' + str(METHOD))
+print('Reward Type: ' + str(REWARD_TYPE))
+print('Seed: ' + str(SEED))
 
+torch.set_num_threads(torch.get_num_threads())
 
 # ENV PARAMS
 
@@ -421,8 +422,9 @@ HYPERS = dict(# training params
     timeout            = ep_len,
     velocity_max       = 1,
     omega_max          = 1,
-    env_type           = 2,
-    reward_type        = REWARD_TYPE
+    env_type           = 4,
+    reward_type        = REWARD_TYPE,
+    colour             = tuple(args.colour)
 )
 
 for k,v in HYPERS.items(): exec("{} = {!r}".format(k,v))
@@ -430,21 +432,26 @@ for k,v in HYPERS.items(): exec("{} = {!r}".format(k,v))
 #=========================================================================================================================================================#
 
 env = PointGoalNavigation(**HYPERS)
-num_agents = 10
+num_agents = 1
 prior = PotentialFieldsController()
-std_prior = 0.4
+std_prior = 0.3
+
+env.seed(SEED)
+torch.manual_seed(SEED)
+np.random.seed(SEED)
+random.seed(SEED)
 
 agents = [SACAgent(lambda : env, 
                     actor_critic=core.MLPActorCritic,
                     ac_kwargs=dict(hidden_sizes=[256]*2), 
                     gamma=0.99, 
-                    seed=i, 
+                    seed=i+SEED, 
                     steps_per_epoch=4000,
                     epochs=200,
                     replay_size=int(1e6),
                     polyak=0.995,
                     lr=1e-3,
-                    alpha=0.2,
+                    alpha=0.1,
                     batch_size=128,
                     start_steps=10000,
                     update_after=1000,
@@ -456,11 +463,11 @@ agents = [SACAgent(lambda : env,
 obs_dim = env.observation_space.shape
 act_dim = env.action_space.shape[0]
 replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=int(1e6))
-num_episodes = 500000
+num_episodes = 1200
 total_steps = 0
 test_steps = 0
-w1 = 1
-w1_decay = w_decay(start_val=1, end_val=0.001, iterns=600000)
+alpha = 1
+alpha_decay = alpha_exponential_decay_function(start_val=1, end_val=0.001, iterns=600000)
 
 
 
@@ -469,10 +476,8 @@ print("Training...")
 for i in range(num_episodes):
 
     agent = random.choice(agents)
-    gather_experience(agent, env, max_steps=ep_len)
+    gather_experience(agent, env, ep_len, i)
     
     if i%10 == 0:
-        save_ensemble()
-        print('Evaluating...')
         evaluate_agent(i)
-
+        save_ensemble()

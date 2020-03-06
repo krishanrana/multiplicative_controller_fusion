@@ -12,12 +12,9 @@ from tensorboardX import SummaryWriter
 from PointGoalNavigationEnv import *
 import matplotlib.pyplot as plt
 from prior_controller import *
-from multiprocessing import Process
 from time import sleep
 import ray
-
 import scipy.stats as stats
-import collections
 
 
 def mlp(sizes, activation, output_activation=nn.Identity):
@@ -75,7 +72,7 @@ def fuse_controllers(prior_mu, prior_sigma, policy_mu, policy_sigma):
     w1 = 1
     w2 = 1
     mu = (np.power(policy_sigma, 2) * w1 * prior_mu + np.power(prior_sigma,2) * w2 * policy_mu)/(np.power(policy_sigma,2) * w1 + np.power(prior_sigma,2) * w2)
-    sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(w1*policy_sigma + w2*prior_sigma))
+    sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(np.power(policy_sigma,2) * w1 + np.power(prior_sigma,2) * w2))
     return mu, sigma
 
 
@@ -115,7 +112,7 @@ def get_action_simple(state, policy):
     a, _, mu, std = policy(state, False, False)
     return [mu.detach().squeeze(0).cpu().numpy(), std.detach().squeeze(0).cpu().numpy()]
 
-def test_env(alpha=0.1):
+def test_env():
     print('Evaluating...')
 
     if VIS_GRAPH:
@@ -124,27 +121,27 @@ def test_env(alpha=0.1):
         fig.canvas.draw()
         plt.axis([-10,10,0,2])
 
-    success = 0
-    total_time = 0
-    num_episodes = 20
-    steps_counter = 0
+    total_rewards = 0
+    total_steps = 0
+    num_episodes = 15
+ 
+    for i in range(num_episodes):
 
-    for _ in range(num_episodes):
-
-        state = env.reset()
+        state = env.reset(i)
         if VIS: env.render()
         done = False
-        total_reward = 0
-        steps = 0
         
         while True:
 
             if METHOD=="hybrid":
 
-                #action_dist = get_action(state)
                 dist_to_goal, angle_to_goal, _, _, laser_scan, _, _ = env._get_position_data()
                 mu_prior = prior.computeResultant(dist_to_goal, angle_to_goal, laser_scan)
-                std_prior = 0.3
+
+                laser_scans = [laser_scan + np.random.normal(0,0.5,180) for _ in range(100)]
+                prior_actions = [prior.computeResultant(dist_to_goal, angle_to_goal, ls) for ls in laser_scans]
+                prior_std_est =  np.std(prior_actions, 0)
+                
                 ensemble_actions = ray.get([get_action.remote(state, p) for p in policy_net_ensemble])
                 mu_ensemble, std_ensemble = fuse_ensembles_deterministic(ensemble_actions)
                 mu_hybrid, std_hybrid = fuse_controllers(mu_prior, std_prior, mu_ensemble, std_ensemble)
@@ -187,57 +184,52 @@ def test_env(alpha=0.1):
                 dist_combined  = Normal(torch.tensor(mu_hybrid), torch.tensor(std_hybrid))
                 act = dist_combined.rsample()
                 act = torch.tanh(act).numpy()
-                #act = [vmu_combined, wmu_combined]
-
+                
             elif METHOD == "policy":
                 action_dist = get_action_simple(state, policy_net)
                 dist_policy = Normal(torch.tensor(action_dist[0]), torch.tensor(action_dist[1]))
                 act = dist_policy.sample()
                 act = torch.tanh(act).numpy()
+                
 
             elif METHOD == "prior":
                 dist_to_goal, angle_to_goal, _, _, laser_scan, _, _ = env._get_position_data()
+
+                laser_scans = [laser_scan + np.random.normal(-2,100,180) for _ in range(100)]
+                prior_actions = [prior.computeResultant(dist_to_goal, angle_to_goal, ls) for ls in laser_scans]
+                prior_std_est =  np.std(prior_actions, 0)
+                print('Std: ', prior_std_est)
+
                 mu_prior = prior.computeResultant(dist_to_goal, angle_to_goal, laser_scan)
                 act = mu_prior
 
-            next_state, reward, done, _ = env.step(act)
-            
-            state = next_state
-            if VIS: env.render()
-            total_reward += reward
-            steps += 1
-            steps_counter += 1
+            elif METHOD == "random":
+                act = np.random.rand(2) * 2 - 1
 
-            if done and steps < 300:
-                success += 1
-                total_time += steps
+
+            next_state, reward, done, _ = env.step(act)
+        
+            state = next_state
+            total_rewards += reward
+            total_steps += 1
+
+            if VIS: env.render()
 
             if done:
+                
                 break
-    
-    print('Alpha: ', alpha)
-    print('Method: ', METHOD)
-    print('Success Rate: ', success/num_episodes)
-    print('Actuation Time: ', total_time/num_episodes)
-
-
-
 
 #==========================================================================================================================
 
 ray.init()
-
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")   
 device = torch.device("cpu")
 METHOD = "hybrid"
 ENV = "PointGoalNavigation"
 REWARD_TYPE = "sparse"
 ALGORITHM = "SAC"
 time_tag = str(time.time())
-log_dir = "evaluation_runs/" + time_tag + "_" + ENV + "_"  + REWARD_TYPE + "_" + ALGORITHM
-writer    = SummaryWriter(log_dir=log_dir)
 VIS = True
-VIS_GRAPH = True
+VIS_GRAPH = False
 seed = 2
 
 torch.manual_seed(seed)
@@ -266,10 +258,11 @@ HYPERS = dict(# training params
               laser_noise        = 0.01,
               angle_min          = -np.pi/2,
               angle_max          = np.pi/2,
-              timeout            = 300,
+              timeout            = 500,
               velocity_max       = 1,
               omega_max          = 1,
-              env_type           = 1,
+              env_type           = 5,
+              reward_type        = "sparse"
                 
 )
 
@@ -279,15 +272,15 @@ for k,v in HYPERS.items(): exec("{} = {!r}".format(k,v))
 
 env = PointGoalNavigation(**HYPERS)
 env.seed(seed)
-action_range = [env.action_space.low, env.action_space.high]    
+action_range = [env.action_space.low, env.action_space.high]
+
+std_prior = 0.3
 
 num_agents = 10
-ensemble_file_name = "pytorch_models/SAC_Data/Ensemble_1581389331.6489875/1581389331.6489875_PointGoalNavigation_sparse_SAC_spinup_long_horizon_hybrid_"
+ensemble_file_name = "trained_ensemble_for_robot_new_5/1582454594.5134897_PointGoalNavigation_sparse_SAC_spinup_long_horizon_hybridFOR_ROBOT10_"
+
 policy_net_ensemble = [torch.load(ensemble_file_name + str(i) + "_.pth").cpu() for i in range(num_agents)]
-
-policy_net = policy_net_ensemble[5]
-
+policy_net = policy_net_ensemble[0]
 prior = PotentialFieldsController()
 
-#for i in np.arange(0,1.1,0.1):
-test_env(alpha=1)
+test_env()
