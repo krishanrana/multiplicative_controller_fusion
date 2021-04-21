@@ -261,7 +261,7 @@ def fuse_controllers(prior_mu, prior_sigma, policy_mu, policy_sigma, alpha):
     if alpha > 1.0:
         alpha = 1.0
     alpha_comp = 1.0-alpha
-    mu = (np.power(policy_sigma, 2) * alpha * prior_mu + np.power(prior_sigma,2) * w2 * policy_mu)/(np.power(policy_sigma,2) * alpha + np.power(prior_sigma,2) * alpha_comp)
+    mu = (np.power(policy_sigma, 2) * alpha * prior_mu + np.power(prior_sigma,2) * alpha_comp * policy_mu)/(np.power(policy_sigma,2) * alpha + np.power(prior_sigma,2) * alpha_comp)
     sigma = np.sqrt((np.power(prior_sigma,2) * np.power(policy_sigma,2))/(np.power(policy_sigma,2) * alpha + np.power(prior_sigma,2) * alpha_comp))
     return mu, sigma
 
